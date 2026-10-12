@@ -39,6 +39,9 @@ public final class AudioEngine {
             guard let conv = AVAudioConverter(from: nativeFormat, to: target) else {
                 throw NSError(domain: "Sagaa", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio converter"])
             }
+            if nativeFormat.channelCount > 1 {
+                conv.channelMap = [0]
+            }
             self.converter = conv
         }
 

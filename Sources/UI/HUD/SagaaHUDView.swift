@@ -77,9 +77,9 @@ public struct SagaaHUDView: View {
     }
 
     private func waveformBar(index: Int) -> some View {
-        let normalizedLevel = min(max(CGFloat(state.audioLevel) * 8.0, 0.15), 1.0)
-        let variation = sin(Double(index) * 0.7) * 0.35 + 0.65
-        let height = max(4.0, 18.0 * normalizedLevel * CGFloat(variation))
+        let normalizedLevel = min(max(CGFloat(state.audioLevel) * 16.0, 0.1), 1.0)
+        let variation = sin(Double(index) * 0.7) * 0.4 + 0.6
+        let height = max(4.0, 22.0 * normalizedLevel * CGFloat(variation))
 
         return RoundedRectangle(cornerRadius: 1.5)
             .fill(
