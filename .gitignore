@@ -62,5 +62,6 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 
 dist/
+build/
 *.dmg
 .DS_Store

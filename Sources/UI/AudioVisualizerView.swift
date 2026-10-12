@@ -30,3 +30,4 @@ public struct AudioVisualizerView: View {
             .animation(.easeInOut(duration: 0.1), value: dynamicHeight)
     }
 }
+

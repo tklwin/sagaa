@@ -19,79 +19,30 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Compile CoreML Model
+      - name: Build & Package DMG
         run: |
-          xcrun coremlc compile Models/BurmeseASR.mlpackage Models/
-          ls -la Models/BurmeseASR.mlmodelc
-
-      - name: Build Swift Executable
-        run: |
-          swift build -c release
-          ls -la .build/release/
-
-      - name: Bundle macOS App (.app)
-        run: |
-          APP_NAME="Sagaa.app"
-          CONTENTS="$APP_NAME/Contents"
-          MACOS="$CONTENTS/MacOS"
-          RESOURCES="$CONTENTS/Resources"
-
-          mkdir -p "$MACOS" "$RESOURCES"
-
-          # Copy binary
-          cp .build/release/Sagaa "$MACOS/"
-          chmod +x "$MACOS/Sagaa"
-
-          # Copy Resources
-          cp -R Models/BurmeseASR.mlmodelc "$RESOURCES/"
-          cp Models/vocab.json "$RESOURCES/"
-          cp Models/cmvn.json "$RESOURCES/"
-          cp Models/mel_filters.json "$RESOURCES/"
-
-          # Generate Info.plist
-          cat << 'EOF' > "$CONTENTS/Info.plist"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>Sagaa</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.tklwin.sagaa</string>
-              <key>CFBundleName</key>
-              <string>Sagaa</string>
-              <key>CFBundleDisplayName</key>
-              <string>Sagaa</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0.0</string>
-              <key>LSMinimumSystemVersion</key>
-              <string>13.0</string>
-              <key>LSUIElement</key>
-              <true/>
-              <key>NSMicrophoneUsageDescription</key>
-              <string>Sagaa requires microphone access to transcribe Burmese speech.</string>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Create DMG Installer
-        run: |
-          DMG_NAME="Sagaa-macOS.dmg"
-          hdiutil create -volname "Sagaa" -srcfolder "Sagaa.app" -ov -format UDZO "$DMG_NAME"
-          ls -lh "$DMG_NAME"
+          chmod +x build.sh
+          ./build.sh --dmg
+          cd dist
+          shasum -a 256 Sagaa-macOS.dmg > Sagaa-macOS.dmg.sha256
+          echo "### Release Checksum" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat Sagaa-macOS.dmg.sha256 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Sagaa-Installer-DMG
-          path: Sagaa-macOS.dmg
+          path: |
+            dist/Sagaa-macOS.dmg
+            dist/Sagaa-macOS.dmg.sha256
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: Sagaa-macOS.dmg
+          files: |
+            dist/Sagaa-macOS.dmg
+            dist/Sagaa-macOS.dmg.sha256
           generate_release_notes: true
-

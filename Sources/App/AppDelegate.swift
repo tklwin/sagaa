@@ -22,6 +22,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         state.requestAccessibilityAction = { [weak self] in
             self?.requestAccessibility()
         }
+        state.openSettingsAction = {
+            SettingsWindowController.shared.showSettings()
+        }
     }
 
     private func setupStatusItem() {
@@ -52,7 +55,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(nil)
         } else {
-            state.refreshAccessibility()
+            state.refreshPermissions()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
@@ -66,36 +69,41 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         // 1. Record / Stop
-        let recordTitle = state.isRecording ? "■ ရပ်တန့်၍ စာထည့်မည် (Stop Dictation)" : "● စတင် အသံဖမ်းမည် (Start Dictation)"
+        let recordTitle = state.isRecording ? "Stop Dictation" : "Start Dictation"
         let recordItem = NSMenuItem(title: recordTitle, action: #selector(menuToggleRecording), keyEquivalent: "r")
         recordItem.target = self
         menu.addItem(recordItem)
 
-        let shortcutItem = NSMenuItem(title: "   ဖြတ်လမ်းခလုတ် (Shortcut): ⌃⌥S", action: nil, keyEquivalent: "")
+        let shortcutItem = NSMenuItem(title: "   Global Shortcut: ⌃⌥S", action: nil, keyEquivalent: "")
         shortcutItem.isEnabled = false
         menu.addItem(shortcutItem)
 
         menu.addItem(NSMenuItem.separator())
 
         // 2. Open Panel
-        let openPanelItem = NSMenuItem(title: "အသေးစိတ် Panel ဖွင့်မည် (Open Panel)", action: #selector(menuOpenPanel), keyEquivalent: "o")
+        let openPanelItem = NSMenuItem(title: "Open Panel", action: #selector(menuOpenPanel), keyEquivalent: "o")
         openPanelItem.target = self
         menu.addItem(openPanelItem)
 
         // 3. Natural Flow toggle
         let naturalFlowItem = NSMenuItem(
-            title: "သဘာဝ စာလုံးပေါင်း (Natural Flow): \(state.useNaturalFlow ? "ON" : "OFF")",
+            title: "Natural Word Flow: \(state.useNaturalFlow ? "ON" : "OFF")",
             action: #selector(menuToggleNaturalFlow),
             keyEquivalent: ""
         )
         naturalFlowItem.target = self
         menu.addItem(naturalFlowItem)
 
+        // 4. Settings
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(menuOpenSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         menu.addItem(NSMenuItem.separator())
 
-        // 4. Accessibility Check
+        // 5. Accessibility Check
         let isTrusted = AXIsProcessTrusted()
-        let axTitle = isTrusted ? "✓ စာရိုက်သွင်းခွင့်: ခွင့်ပြုပြီး (Accessibility Granted)" : "⚠️ စာရိုက်သွင်းခွင့် တောင်းခံမည် (Request Accessibility)"
+        let axTitle = isTrusted ? "Accessibility: Granted" : "Accessibility: Request Permission..."
         let axItem = NSMenuItem(title: axTitle, action: isTrusted ? nil : #selector(requestAccessibility), keyEquivalent: "")
         if !isTrusted {
             axItem.target = self
@@ -104,7 +112,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // 5. Quit
+        // 6. Quit
         let quitItem = NSMenuItem(title: "Quit Sagaa", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
@@ -129,11 +137,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         state.useNaturalFlow.toggle()
     }
 
+    @objc private func menuOpenSettings() {
+        SettingsWindowController.shared.showSettings()
+    }
+
     @objc private func requestAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.state.refreshAccessibility()
+            self?.state.refreshPermissions()
         }
     }
 
@@ -187,6 +199,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Record the application that currently has focus BEFORE taking action
+        TextInjector.shared.recordTargetApplication()
+
         do {
             try audioEngine.startRecording { [weak self] level in
                 DispatchQueue.main.async {
@@ -195,6 +210,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             state.isRecording = true
             statusController.setRecordingState()
+            if state.soundFeedback {
+                AudioFeedbackManager.shared.playStartSound()
+            }
         } catch {
             showNotification(title: "Sagaa Error", message: "Microphone access failed: \(error.localizedDescription)")
         }
@@ -204,6 +222,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         state.isRecording = false
         state.isTranscribing = true
         statusController.setTranscribingState()
+
+        if state.soundFeedback {
+            AudioFeedbackManager.shared.playStopSound()
+        }
+
+        // Close popover if open so the target app can immediately regain frontmost focus
+        if popover.isShown {
+            popover.performClose(nil)
+        }
 
         let audioSamples = audioEngine.stopRecording()
         state.audioLevel = 0.0
@@ -240,8 +267,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.state.lastLatencyMs = latency
 
                     if !finalText.isEmpty {
+                        // Add to persistent history
+                        self.state.addRecord(text: finalText, latencyMs: latency)
+
                         if self.state.autoPaste {
-                            TextInjector.shared.inject(text: finalText)
+                            TextInjector.shared.inject(text: finalText, pasteDelayMs: self.state.pasteDelayMs)
                         } else {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(finalText, forType: .string)

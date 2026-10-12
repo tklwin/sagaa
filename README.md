@@ -1,99 +1,144 @@
-# 🎙️ Sagaa (စကား)
+# Sagaa (စကား)
 
 > **Ultra-fast, private, and lightweight offline Burmese speech-to-text dictation for macOS.**
 
-[![Platform](https://img.shields.io/badge/Platform-macOS%2013%2B-black?logo=apple)](https://apple.com)
-[![Architecture](https://img.shields.io/badge/Architecture-Apple%20Silicon-blue)](https://apple.com)
-[![Engine](https://img.shields.io/badge/Engine-CoreML%20%7C%20Neural%20Engine-orange)](https://developer.apple.com/machine-learning/core-ml/)
+[![Platform](https://img.shields.io/badge/Platform-macOS%2013%2B%20(Ventura%2B)-black?logo=apple)](https://apple.com)
+[![Architecture](https://img.shields.io/badge/Architecture-Apple%20Silicon%20(M1%2FM2%2FM3%2FM4)-blue)](https://apple.com)
+[![Engine](https://img.shields.io/badge/Engine-End--to--End%20CoreML%20%7C%20Apple%20Neural%20Engine-orange)](https://developer.apple.com/machine-learning/core-ml/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-**Sagaa** is a native macOS speech-to-text dictation tool designed specifically for the Burmese (Myanmar) language. Built in pure Swift using Apple CoreML, it runs entirely on-device with zero cloud latency and complete privacy.
+**Sagaa** is a native macOS menu bar dictation tool designed specifically for the Burmese (Myanmar) language. Built in pure Swift using an End-to-End CoreML engine, it runs 100% locally on Apple Silicon with zero cloud dependencies and sub-30ms latency.
+
+Inspired by the native macOS architecture of **vorssaint-utils** and the intuitive dictation workflow of **Handy**.
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-* ⚡ **Blazing Fast**: **~25 ms** warm inference latency on the Apple Neural Engine (ANE) and Apple Silicon GPU.
-* 🔒 **100% Private & Offline**: Audio is never sent to the cloud. Everything is processed locally on your Mac.
-* 🪶 **Featherlight**: Consumes **< 50 MB RAM** — no Electron, no Python runtime overhead.
-* 🎯 **Accurate Burmese**: Powered by a 23.8M Conformer CTC model trained specifically on Myanmar speech datasets (OpenSLR-80).
-* ⌨️ **Universal Dictation**: Lives in the macOS Menu Bar. Speak in Burmese, and your transcription is automatically pasted right at your cursor in any app (Telegram, Notes, Word, Browser, etc.).
+* ⚡ **End-to-End Neural Speed**: **~24 ms** warm inference latency running directly on the Apple Neural Engine (ANE) and GPU.
+* 🔒 **100% Offline & Private**: Zero audio data ever leaves your Mac. No network connection required.
+* 🪶 **Ultra Lightweight**: Consumes **< 45 MB RAM** — native Swift AppKit & SwiftUI with zero webview overhead.
+* 🎯 **Accurate Burmese Recognition**: 23.8M Conformer CTC model trained on Myanmar speech datasets (OpenSLR-80).
+* 📝 **Natural Word Flow (သဘာဝ စာလုံးပေါင်း စနစ်)**: Grammatical syllable-to-word rejoining that automatically turns disjointed syllables into natural, properly-spaced Burmese words.
+* ⌨️ **Universal Zero-Permission Hotkey**: Uses Carbon `RegisterEventHotKey` for instantaneous toggling with `⌃⌥S` (`Control + Option + S`) anywhere in macOS.
+* 📋 **Bulletproof Auto-Paste**:
+  - Automatically restores target application window focus.
+  - Monitors physical keyboard modifier states (`Control`, `Option`) and releases them before sending `Cmd+V`.
+  - Configurable paste delay in Settings.
+* ⚙️ **Dedicated Settings Window (`⌘,`)**:
+  - **General**: Launch at login (`SMAppService`), auto-paste toggle, paste delay selector, sound feedback.
+  - **Dictation**: Natural Burmese word flow switch, ANE engine specs, latency counters.
+  - **Shortcuts**: Shortcut reference and configuration.
+  - **History**: Searchable list of recent transcriptions with 1-click clipboard copy and latency benchmarks.
+  - **Permissions**: Live status for Microphone & Accessibility, 1-click authorization prompts, and a "Reset Stale Permission" recovery utility.
+  - **About**: Version information, open-source licenses, and repository links.
+* 🔔 **Auditory & Visual Feedback**: Subtle start/stop audio cues and live audio level waveform visualizer.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ End-to-End Architecture
 
 ```
-┌────────────────────────┐
-│   Microphone (16kHz)   │
-└───────────┬────────────┘
-            │ AVAudioEngine
-            ▼
-┌────────────────────────┐
-│ vDSP Mel-Spectrogram   │ 80-bin Filterbank (Accelerate)
-└───────────┬────────────┘
-            │
-            ▼
-┌────────────────────────┐
-│ Apple CoreML Engine    │ BurmeseASR.mlpackage (38 MB)
-│  (Neural Engine / GPU) │ ~25ms Inference Latency
-└───────────┬────────────┘
-            │ CTC Greedy Decode (vocab.json)
-            ▼
-┌────────────────────────┐
-│   Target Application   │ Direct text injection (Cmd+V)
-└────────────────────────┘
+┌──────────────────────────────────────┐
+│       Microphone (16kHz PCM)         │
+└──────────────────┬───────────────────┘
+                   │ AVAudioEngine
+                   ▼
+┌──────────────────────────────────────┐
+│     End-to-End CoreML Pipeline       │
+│                                      │
+│  ┌────────────────────────────────┐  │
+│  │ 1D-Conv STFT + Mel Filterbank  │  │ (Embedded inside CoreML graph)
+│  └────────────────┬───────────────┘  │
+│                   ▼                  │
+│  ┌────────────────────────────────┐  │
+│  │ Conformer CTC Encoder (23.8M)  │  │ (Apple Neural Engine / GPU Float16)
+│  └────────────────────────────────┘  │
+└──────────────────┬───────────────────┘
+                   │ Fast Memory-Strided CTC Greedy Decoder
+                   ▼
+┌──────────────────────────────────────┐
+│   Burmese Syllable-to-Word Rejoiner  │ (Natural spacing & orthography)
+└──────────────────┬───────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────┐
+│  Target App Focus & Text Injector    │ (Modifier-safe Cmd+V injection)
+└──────────────────────────────────────┘
 ```
 
 ---
 
-## 📦 Installation
+## 🚀 Installation
 
-### 1. Download DMG
-Download the latest `Sagaa-macOS.dmg` from the **[Releases](../../releases)** page, open it, and drag `Sagaa.app` into your Applications folder.
+### Option 1: Homebrew Cask (Recommended)
 
-### 2. Homebrew Cask (Coming Soon)
 ```bash
+# Add the tap
 brew tap tklwin/sagaa
+
+# Install Sagaa
 brew install --cask sagaa
 ```
+
+### Option 2: Direct DMG Download
+
+1. Download `Sagaa-macOS.dmg` from the **[Latest Release](https://github.com/tklwin/sagaa/releases/latest)**.
+2. Open the DMG and drag **Sagaa** to your **Applications** folder.
+3. Launch **Sagaa** from Applications or Spotlight.
+
+---
+
+## ⌨️ How to Use
+
+1. Launch Sagaa. A waveform icon (`waveform`) will appear in your macOS Menu Bar.
+2. Place your cursor into any app (e.g. TextEdit, Notes, Telegram, Slack, VS Code, Browser).
+3. Press **`⌃⌥S`** (`Control + Option + S`) or click the Menu Bar icon to start dictation.
+4. Speak in Burmese (e.g. *"မင်္ဂလာပါ ခင်ဗျာ"*).
+5. Press **`⌃⌥S`** again to finish. Sagaa instantly transcribes and pastes the text directly at your cursor!
+
+> **Left-Click Menu Bar Icon**: Opens the quick SwiftUI Popover panel.  
+> **Right-Click Menu Bar Icon**: Opens the standard macOS native context menu.  
+> **Open Preferences**: Press **`⌘,`** or select **Settings...** from the menu.
 
 ---
 
 ## 🛠️ Building from Source
 
-### Automated Cloud Build (GitHub Actions)
-This repository includes a pre-configured GitHub Actions workflow (`.github/workflows/build-release.yml`) that compiles the CoreML model and generates a distributable `.dmg` on Apple Silicon runners.
+### Prerequisites
+- macOS 13.0 (Ventura) or newer on Apple Silicon (M1/M2/M3/M4).
+- Xcode Command Line Tools (`xcode-select --install`).
 
-### Local Build (macOS with Xcode 15+)
+### Build, Install, or Package DMG
+
+Use the included build script:
+
 ```bash
-# 1. Compile CoreML model package
-xcrun coremlc compile Models/BurmeseASR.mlpackage Models/
+# 1. Compile in Release mode
+./build.sh
 
-# 2. Build Swift Release Binary
-swift build -c release
+# 2. Build and install directly to /Applications/Sagaa.app
+./build.sh --install
+
+# 3. Build and package a production DMG in dist/
+./build.sh --dmg
+
+# 4. Clean build artifacts
+./build.sh --clean
 ```
 
 ---
 
-## 🗺️ Roadmap
+## 🔒 Permissions & Privacy
 
-- [x] Conformer CTC PyTorch ➔ Apple CoreML FP16 export (38 MB).
-- [x] vDSP Accelerate audio DSP Mel Spectrogram extractor.
-- [x] Native Swift menu bar app structure.
-- [x] GitHub Actions automated `.dmg` packaging pipeline.
-- [ ] Non-activating floating HUD pill with live audio waveform.
-- [ ] User custom dictionary & fine-tuning support.
+- **Microphone**: Needed to capture live audio input. Requested on first recording.
+- **Accessibility**: Needed strictly to inject `Cmd+V` into your active target application.
+- **Resetting Accessibility**: If macOS displays Sagaa as enabled in System Settings but text injection fails, open **Settings > Permissions** and click **"Reset Permission"** to clear stale code signature entries.
 
 ---
 
-## 📜 Credits & Acknowledgments
+## 📜 Credits & License
 
-- **Burmese ASR Model**: [freococo/myanmar_asr](https://huggingface.co/freococo/myanmar_asr) by freococo (Licensed under **Apache 2.0**).
-- **Training Corpus**: OpenSLR-80 Burmese Speech Corpus.
-
----
-
-## 📄 License
-
-Licensed under the [Apache License, Version 2.0](LICENSE).
+- **ASR Conformer Model**: [freococo/myanmar_asr](https://huggingface.co/freococo/myanmar_asr) by freococo (Licensed under **Apache 2.0**).
+- **Dataset**: OpenSLR-80 Burmese Speech Corpus.
+- **Application Code**: Licensed under the **[Apache License 2.0](LICENSE)**.

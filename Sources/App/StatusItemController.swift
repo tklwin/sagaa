@@ -43,7 +43,7 @@ public final class StatusItemController {
             button.image = idleIcon
             button.imagePosition = .imageLeading
             button.title = " Sagaa"
-            button.toolTip = "Sagaa (စကား) - Burmese Speech-to-Text\nLeft-click: Open Panel\nRight-click: Quick Menu\nShortcut: Control+Option+S"
+            button.toolTip = "Sagaa - Offline Burmese Speech-to-Text\nLeft-click: Open Panel\nRight-click: Quick Menu\nShortcut: Control+Option+S"
             button.target = self
             button.action = #selector(statusBarButtonClicked)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -62,13 +62,13 @@ public final class StatusItemController {
     public func setRecordingState() {
         guard let button = statusItem.button else { return }
         button.image = recordingIcon
-        button.title = " အသံဖမ်းနေသည်..."
+        button.title = " Recording..."
     }
 
     public func setTranscribingState() {
         guard let button = statusItem.button else { return }
         button.image = transcribingIcon
-        button.title = " စာပြောင်းနေသည်..."
+        button.title = " Transcribing..."
     }
 
     public func setIdleState() {

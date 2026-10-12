@@ -9,35 +9,30 @@ public struct SagaaPopoverView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             headerSection
             heroDictationSection
             recentTranscriptionSection
-            settingsSection
+            quickTogglesSection
             footerSection
         }
         .padding(18)
-        .frame(width: 340)
+        .frame(width: 350)
     }
 
     // MARK: - 1. Header
     private var headerSection: some View {
         HStack(spacing: 10) {
             Image(systemName: "waveform")
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundColor(SagaaTheme.primaryAccent)
-                .frame(width: 32, height: 32)
+                .frame(width: 30, height: 30)
                 .background(SagaaTheme.primaryAccent.opacity(0.15))
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text("Sagaa")
-                        .font(.system(size: 15, weight: .bold))
-                    Text("(စကား)")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.secondary)
-                }
+                Text("Sagaa")
+                    .font(.system(size: 15, weight: .bold))
                 Text("Burmese Speech-to-Text")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
@@ -50,7 +45,7 @@ public struct SagaaPopoverView: View {
                 Circle()
                     .fill(state.isModelReady ? Color.green : Color.orange)
                     .frame(width: 6, height: 6)
-                Text(state.isModelReady ? "ANE Active" : "Loading")
+                Text(state.isModelReady ? "ANE Active" : "Warming up")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(.secondary)
             }
@@ -58,33 +53,44 @@ public struct SagaaPopoverView: View {
             .padding(.vertical, 4)
             .background(Color.secondary.opacity(0.12))
             .cornerRadius(12)
+
+            // Settings Gear Button
+            Button(action: {
+                state.openSettingsAction?()
+            }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Open Settings (⌘,)")
         }
     }
 
     // MARK: - 2. Hero Dictation Section
     private var heroDictationSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Button(action: {
                 state.toggleRecordingAction?()
             }) {
                 ZStack {
                     Circle()
                         .fill(state.isRecording ? SagaaTheme.recordingRed : SagaaTheme.primaryAccent)
-                        .frame(width: 68, height: 68)
+                        .frame(width: 64, height: 64)
                         .shadow(color: (state.isRecording ? SagaaTheme.recordingRed : SagaaTheme.primaryAccent).opacity(0.35),
                                 radius: state.isRecording ? 10 : 4, x: 0, y: 2)
 
                     if state.isTranscribing {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.2)
+                            .scaleEffect(1.1)
                     } else if state.isRecording {
                         Image(systemName: "stop.fill")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)
                     } else {
                         Image(systemName: "mic.fill")
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
@@ -92,27 +98,27 @@ public struct SagaaPopoverView: View {
             .buttonStyle(PlainButtonStyle())
             .disabled(!state.isModelReady || state.isTranscribing)
 
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 if state.isTranscribing {
-                    Text("စာပြောင်းနေပါသည်...")
+                    Text("Transcribing speech...")
                         .font(.system(size: 13, weight: .semibold))
                 } else if state.isRecording {
-                    Text("အသံဖမ်းယူနေပါသည် (Recording...)")
+                    Text("Recording speech...")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(SagaaTheme.recordingRed)
                 } else {
-                    Text("စတင် အသံဖမ်းမည် (Click to Dictate)")
+                    Text("Click to Dictate")
                         .font(.system(size: 13, weight: .semibold))
                 }
 
                 AudioVisualizerView(level: state.audioLevel, isRecording: state.isRecording)
 
-                Text("ဖြတ်လမ်းခလုတ်: ⌃⌥S (Control + Option + S)")
+                Text("Shortcut: ⌃⌥S (Control + Option + S)")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .cardStyle()
     }
@@ -121,7 +127,7 @@ public struct SagaaPopoverView: View {
     private var recentTranscriptionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("နောက်ဆုံး ရလဒ် (Latest Output)")
+                Text("Latest Output")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
 
@@ -140,7 +146,7 @@ public struct SagaaPopoverView: View {
 
             if !state.lastTranscription.isEmpty {
                 Text(state.lastTranscription)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13.5))
                     .lineSpacing(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(10)
@@ -152,7 +158,7 @@ public struct SagaaPopoverView: View {
                     Button(action: copyToClipboard) {
                         HStack(spacing: 4) {
                             Image(systemName: state.copiedFeedback ? "checkmark" : "doc.on.doc")
-                            Text(state.copiedFeedback ? "ကူးယူပြီးပါပြီ" : "Copy")
+                            Text(state.copiedFeedback ? "Copied" : "Copy")
                         }
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(state.copiedFeedback ? .green : .secondary)
@@ -160,7 +166,7 @@ public struct SagaaPopoverView: View {
                     .buttonStyle(PlainButtonStyle())
                 }
             } else {
-                Text("စကားပြောပြီးသည်နှင့် စာသားများ ဤနေရာတွင် ပေါ်လာပါမည်။")
+                Text("Press ⌃⌥S or click above to dictate anywhere.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -171,14 +177,14 @@ public struct SagaaPopoverView: View {
         .cardStyle()
     }
 
-    // MARK: - 4. Settings Card Group
-    private var settingsSection: some View {
-        VStack(spacing: 10) {
+    // MARK: - 4. Quick Toggles
+    private var quickTogglesSection: some View {
+        VStack(spacing: 8) {
             Toggle(isOn: $state.useNaturalFlow) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("သဘာဝ စာလုံးပေါင်း (Natural Flow)")
+                    Text("Natural Word Flow")
                         .font(.system(size: 12, weight: .medium))
-                    Text("စကားလုံးများ အလိုက် သဘာဝကျစွာ ပေါင်းစပ်မည်")
+                    Text("Rejoin syllables into natural Burmese words")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -189,30 +195,14 @@ public struct SagaaPopoverView: View {
 
             Toggle(isOn: $state.autoPaste) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("တိုက်ရိုက် စာရိုက်သွင်းမည် (Auto-Type)")
+                    Text("Auto-Paste into Active App")
                         .font(.system(size: 12, weight: .medium))
-                    Text("Cursor ချထားသော App ထဲသို့ တိုက်ရိုက်ထည့်မည်")
+                    Text("Type directly at cursor location in target app")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
             }
             .toggleStyle(SwitchToggleStyle(tint: SagaaTheme.primaryAccent))
-
-            Divider().opacity(0.6)
-
-            Toggle(isOn: $state.launchAtLogin) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("စက်ဖွင့်လျှင် အလိုအလျောက်ဖွင့်မည်")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("Launch at Login (Background Daemon)")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-            }
-            .toggleStyle(SwitchToggleStyle(tint: SagaaTheme.primaryAccent))
-            .onChange(of: state.launchAtLogin) { newValue in
-                LaunchAtLoginManager.shared.isEnabled = newValue
-            }
         }
         .padding(12)
         .cardStyle()
@@ -228,7 +218,7 @@ public struct SagaaPopoverView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)
-                        Text("Accessibility လိုအပ်သည်")
+                        Text("Accessibility Required")
                             .font(.system(size: 11))
                             .foregroundColor(.orange)
                     }
@@ -238,7 +228,7 @@ public struct SagaaPopoverView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.shield.fill")
                         .foregroundColor(.green)
-                    Text("ခွင့်ပြုချက် ရရှိပြီး")
+                    Text("Access Granted")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
@@ -246,7 +236,17 @@ public struct SagaaPopoverView: View {
 
             Spacer()
 
-            Button("Quit Sagaa") {
+            Button("Settings...") {
+                state.openSettingsAction?()
+            }
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .buttonStyle(PlainButtonStyle())
+
+            Text("•")
+                .foregroundColor(.secondary.opacity(0.5))
+
+            Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
             .font(.system(size: 11))
