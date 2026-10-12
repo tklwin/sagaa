@@ -74,10 +74,13 @@ Inspired by the native macOS architecture of **vorssaint-utils** and the intuiti
 ### Option 1: Homebrew Cask (Recommended)
 
 ```bash
-# Add the tap
-brew tap tklwin/sagaa
+# 1. Add the tap directly from GitHub
+brew tap tklwin/sagaa https://github.com/tklwin/sagaa
 
-# Install Sagaa
+# 2. Trust the tap (required for third-party taps on modern Homebrew)
+brew trust tklwin/sagaa
+
+# 3. Install Sagaa via Cask
 brew install --cask sagaa
 ```
 
