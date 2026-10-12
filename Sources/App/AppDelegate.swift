@@ -150,9 +150,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupShortcut() {
-        GlobalShortcutManager.shared.onTrigger = { [weak self] in
-            self?.toggleRecording()
+        GlobalShortcutManager.shared.onKeyDown = { [weak self] in
+            guard let self = self else { return }
+            if !self.state.isRecording {
+                self.startRecording()
+            } else {
+                self.stopRecordingAndTranscribe()
+            }
         }
+
+        GlobalShortcutManager.shared.onKeyUp = { [weak self] duration in
+            guard let self = self else { return }
+            if self.state.isRecording && self.state.pushToTalk && duration >= 0.4 {
+                self.stopRecordingAndTranscribe()
+            }
+        }
+
         GlobalShortcutManager.shared.registerDefaultShortcut()
     }
 
@@ -213,8 +226,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             if state.soundFeedback {
                 AudioFeedbackManager.shared.playStartSound()
             }
+            if state.showFloatingHUD {
+                SagaaHUDController.shared.show()
+            }
         } catch {
             showNotification(title: "Sagaa Error", message: "Microphone access failed: \(error.localizedDescription)")
+            SagaaHUDController.shared.hide()
         }
     }
 
@@ -238,6 +255,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         guard audioSamples.count >= 8000 else {
             state.isTranscribing = false
             statusController.setIdleState()
+            SagaaHUDController.shared.hide(afterDelay: 0.15)
             return
         }
 
@@ -247,6 +265,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self?.state.isTranscribing = false
                     self?.statusController.setIdleState()
+                    SagaaHUDController.shared.hide(afterDelay: 0.15)
                 }
                 return
             }
@@ -277,6 +296,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                             NSPasteboard.general.setString(finalText, forType: .string)
                         }
                         self.showNotification(title: "✅ Sagaa (\(String(format: "%.0f", latency))ms)", message: finalText)
+                        SagaaHUDController.shared.hide(afterDelay: 0.85)
+                    } else {
+                        SagaaHUDController.shared.hide(afterDelay: 0.2)
                     }
                 }
             } catch {
@@ -284,10 +306,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.state.isTranscribing = false
                     self.statusController.setIdleState()
                     self.showNotification(title: "Sagaa Error", message: error.localizedDescription)
+                    SagaaHUDController.shared.hide(afterDelay: 0.2)
                 }
             }
         }
     }
+
 
     private func showNotification(title: String, message: String) {
         let content = UNMutableNotificationContent()

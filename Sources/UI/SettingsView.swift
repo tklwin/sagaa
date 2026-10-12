@@ -54,6 +54,20 @@ public struct SettingsView: View {
     private var generalTab: some View {
         Form {
             Section {
+                Toggle("Show Floating HUD Overlay", isOn: $state.showFloatingHUD)
+                Text("Displays a sleek dynamic pill with live audio waveform at the bottom of the screen.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Push-to-Talk (Hold-to-Record)", isOn: $state.pushToTalk)
+                Text("Hold shortcut while speaking and release to automatically paste. Quick tap toggles recording.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Divider()
+
+            Section {
                 Toggle("Launch Sagaa at Login", isOn: $state.launchAtLogin)
                 Text("Start Sagaa automatically in the background when your Mac boots.")
                     .font(.caption)
@@ -72,6 +86,7 @@ public struct SettingsView: View {
                     Picker("Paste Delay", selection: $state.pasteDelayMs) {
                         Text("40 ms (Fastest)").tag(40)
                         Text("60 ms (Recommended)").tag(60)
+                        Text("80 ms (Safe)").tag(80)
                         Text("100 ms (For Slow Apps)").tag(100)
                         Text("150 ms (Terminal / Remote)").tag(150)
                     }
@@ -108,6 +123,8 @@ public struct SettingsView: View {
             Section {
                 LabeledContent("ASR Architecture", value: "Conformer CTC (23.8M)")
                 LabeledContent("Inference Precision", value: "Float16 (Apple Neural Engine)")
+                LabeledContent("Audio DSP", value: "Hardware VoiceProcessingIO")
+                LabeledContent("Noise Cancellation", value: "Active (Acoustic Echo & Background Cut)")
                 LabeledContent("Sample Rate", value: "16,000 Hz (Mono PCM)")
                 LabeledContent("Latency", value: "~24 ms warm inference")
             }
@@ -143,9 +160,19 @@ public struct SettingsView: View {
             Divider()
 
             Section {
-                Text("Built using Carbon EventHotKey — works reliably inside any active app without requiring Accessibility keystroke monitoring.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Interaction Modes:")
+                        .font(.subheadline.bold())
+                    Text("• Push-to-Talk: Hold ⌃⌥S while speaking, then release to instantly paste.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("• Tap-to-Talk: Tap ⌃⌥S once to record, and tap again when finished.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("• Zero Permissions Required: Carbon EventHotKey works system-wide without needing Accessibility keystroke monitoring.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }

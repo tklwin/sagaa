@@ -88,6 +88,11 @@ else
     exit 1
 fi
 
+# Copy AppIcon
+if [[ -f "Resources/AppIcon.icns" ]]; then
+    cp Resources/AppIcon.icns "$RESOURCES/"
+fi
+
 # Copy Info.plist
 if [[ -f "Resources/Info.plist" ]]; then
     cp Resources/Info.plist "$CONTENTS/Info.plist"

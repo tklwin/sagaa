@@ -5,41 +5,53 @@ public final class GlobalShortcutManager {
     public static let shared = GlobalShortcutManager()
 
     public var onTrigger: (() -> Void)?
+    public var onKeyDown: (() -> Void)?
+    public var onKeyUp: ((TimeInterval) -> Void)?
+
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
+    private var keyDownTimestamp: TimeInterval?
 
     private init() {}
 
     /// Registers system-wide shortcut: Control + Option + S (⌃⌥S)
+    /// Supports both KeyDown and KeyUp for Push-to-Talk and Toggle modes
     public func registerDefaultShortcut() {
         unregisterShortcut()
 
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
-                                      eventKind: UInt32(kEventHotKeyPressed))
+        var eventTypes: [EventTypeSpec] = [
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))
+        ]
 
         let statusHandler = InstallEventHandler(
             GetEventDispatcherTarget(),
             { _, event, userData -> OSStatus in
-                guard let userData = userData else { return OSStatus(eventNotHandledErr) }
+                guard let userData = userData, let event = event else { return OSStatus(eventNotHandledErr) }
+
                 var hotKeyID = EventHotKeyID()
-                if let event = event {
-                    GetEventParameter(event, EventParamName(kEventParamDirectObject),
-                                      EventParamType(typeEventHotKeyID), nil,
-                                      MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
-                }
+                GetEventParameter(event, EventParamName(kEventParamDirectObject),
+                                  EventParamType(typeEventHotKeyID), nil,
+                                  MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
 
                 // Check signature 'SGAA' (0x53474141)
                 if hotKeyID.signature == 0x5347_4141 && hotKeyID.id == 1 {
                     let manager = Unmanaged<GlobalShortcutManager>.fromOpaque(userData).takeUnretainedValue()
+                    let eventKind = Int(GetEventKind(event))
+
                     DispatchQueue.main.async {
-                        manager.onTrigger?()
+                        if eventKind == kEventHotKeyPressed {
+                            manager.handleKeyDown()
+                        } else if eventKind == kEventHotKeyReleased {
+                            manager.handleKeyUp()
+                        }
                     }
                     return noErr
                 }
                 return OSStatus(eventNotHandledErr)
             },
-            1,
-            &eventType,
+            2,
+            &eventTypes,
             Unmanaged.passUnretained(self).toOpaque(),
             &eventHandler
         )
@@ -66,10 +78,23 @@ public final class GlobalShortcutManager {
 
         if regStatus == noErr, let ref = ref {
             self.hotKeyRef = ref
-            print("✅ Global shortcut ⌃⌥S registered successfully via Carbon")
+            print("✅ Global shortcut ⌃⌥S registered successfully via Carbon (KeyDown + KeyUp)")
         } else {
             print("⚠️ Failed to register hotkey: \(regStatus)")
         }
+    }
+
+    private func handleKeyDown() {
+        keyDownTimestamp = ProcessInfo.processInfo.systemUptime
+        onKeyDown?()
+        onTrigger?()
+    }
+
+    private func handleKeyUp() {
+        guard let start = keyDownTimestamp else { return }
+        let duration = ProcessInfo.processInfo.systemUptime - start
+        keyDownTimestamp = nil
+        onKeyUp?(duration)
     }
 
     public func unregisterShortcut() {
@@ -87,4 +112,3 @@ public final class GlobalShortcutManager {
         unregisterShortcut()
     }
 }
-

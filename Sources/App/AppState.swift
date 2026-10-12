@@ -58,6 +58,12 @@ public final class AppState: ObservableObject {
     @Published public var copiedHistoryRecordId: UUID? = nil
 
     // Persistent settings
+    @Published public var showFloatingHUD: Bool {
+        didSet { UserDefaults.standard.set(showFloatingHUD, forKey: "showFloatingHUD") }
+    }
+    @Published public var pushToTalk: Bool {
+        didSet { UserDefaults.standard.set(pushToTalk, forKey: "pushToTalk") }
+    }
     @Published public var useNaturalFlow: Bool {
         didSet { UserDefaults.standard.set(useNaturalFlow, forKey: "useNaturalFlow") }
     }
@@ -84,9 +90,11 @@ public final class AppState: ObservableObject {
 
     private init() {
         let defaults = UserDefaults.standard
+        self.showFloatingHUD = defaults.object(forKey: "showFloatingHUD") == nil ? true : defaults.bool(forKey: "showFloatingHUD")
+        self.pushToTalk = defaults.object(forKey: "pushToTalk") == nil ? true : defaults.bool(forKey: "pushToTalk")
         self.useNaturalFlow = defaults.object(forKey: "useNaturalFlow") == nil ? true : defaults.bool(forKey: "useNaturalFlow")
         self.autoPaste = defaults.object(forKey: "autoPaste") == nil ? true : defaults.bool(forKey: "autoPaste")
-        self.pasteDelayMs = defaults.object(forKey: "pasteDelayMs") == nil ? 60 : defaults.integer(forKey: "pasteDelayMs")
+        self.pasteDelayMs = defaults.object(forKey: "pasteDelayMs") == nil ? 80 : defaults.integer(forKey: "pasteDelayMs")
         self.soundFeedback = defaults.object(forKey: "soundFeedback") == nil ? true : defaults.bool(forKey: "soundFeedback")
         self.launchAtLogin = LaunchAtLoginManager.shared.isEnabled
 

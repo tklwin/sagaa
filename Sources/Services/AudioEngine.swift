@@ -19,6 +19,10 @@ public final class AudioEngine {
         lock.unlock()
 
         let inputNode = engine.inputNode
+
+        // Enable Apple Silicon hardware Voice Processing (echo cancellation, AGC & noise suppression)
+        try? inputNode.setVoiceProcessingEnabled(true)
+
         let nativeFormat = inputNode.outputFormat(forBus: 0)
 
         guard let target = AVAudioFormat(commonFormat: .pcmFormatFloat32,
