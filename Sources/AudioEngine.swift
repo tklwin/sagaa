@@ -6,6 +6,8 @@ public final class AudioEngine {
     private var isRecording = false
     private var audioBuffer: [Float] = []
     private let lock = NSLock()
+    private var converter: AVAudioConverter?
+    private var targetFormat: AVAudioFormat?
 
     public init() {}
 
@@ -19,46 +21,68 @@ public final class AudioEngine {
         let inputNode = engine.inputNode
         let nativeFormat = inputNode.outputFormat(forBus: 0)
 
-        // Target: 16000Hz, 1 channel
-        guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                               sampleRate: 16000,
-                                               channels: 1,
-                                               interleaved: false) else {
+        guard let target = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: 16000,
+                                         channels: 1,
+                                         interleaved: false) else {
             throw NSError(domain: "Sagaa", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to create target audio format"])
         }
+        self.targetFormat = target
 
-        guard let converter = AVAudioConverter(from: nativeFormat, to: targetFormat) else {
-            throw NSError(domain: "Sagaa", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio converter"])
+        if nativeFormat.sampleRate == 16000 && nativeFormat.channelCount == 1 {
+            self.converter = nil
+        } else {
+            guard let conv = AVAudioConverter(from: nativeFormat, to: target) else {
+                throw NSError(domain: "Sagaa", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to create audio converter"])
+            }
+            self.converter = conv
         }
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: nativeFormat) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 2048, format: nativeFormat) { [weak self] buffer, _ in
             guard let self = self, self.isRecording else { return }
 
-            let frameCount = AVAudioFrameCount(Double(buffer.frameLength) * 16000.0 / nativeFormat.sampleRate)
-            guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else { return }
+            var samples: [Float] = []
 
-            var error: NSError?
-            converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
+            if let converter = self.converter, let targetFormat = self.targetFormat {
+                let ratio = 16000.0 / nativeFormat.sampleRate
+                let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 32)
+                guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return }
+
+                var isConsumed = false
+                var error: NSError?
+                converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+                    if isConsumed {
+                        outStatus.pointee = .noDataNow
+                        return nil
+                    }
+                    isConsumed = true
+                    outStatus.pointee = .haveData
+                    return buffer
+                }
+
+                if let channelData = convertedBuffer.floatChannelData?[0] {
+                    let count = Int(convertedBuffer.frameLength)
+                    samples = Array(UnsafeBufferPointer(start: channelData, count: count))
+                }
+            } else {
+                if let channelData = buffer.floatChannelData?[0] {
+                    let count = Int(buffer.frameLength)
+                    samples = Array(UnsafeBufferPointer(start: channelData, count: count))
+                }
             }
 
-            if let channelData = convertedBuffer.floatChannelData?[0] {
-                let count = Int(convertedBuffer.frameLength)
-                let samples = Array(UnsafeBufferPointer(start: channelData, count: count))
+            guard !samples.isEmpty else { return }
 
-                self.lock.lock()
-                self.audioBuffer.append(contentsOf: samples)
-                self.lock.unlock()
+            self.lock.lock()
+            self.audioBuffer.append(contentsOf: samples)
+            self.lock.unlock()
 
-                // Calculate RMS energy level for UI visualization
-                if let onAudioLevel = onAudioLevel, count > 0 {
-                    var sum: Float = 0
-                    for s in samples { sum += s * s }
-                    let rms = sqrt(sum / Float(count))
-                    DispatchQueue.main.async {
-                        onAudioLevel(rms)
-                    }
+            if let onAudioLevel = onAudioLevel {
+                var sum: Float = 0
+                for s in samples { sum += s * s }
+                let rms = sqrt(sum / Float(samples.count))
+                DispatchQueue.main.async {
+                    onAudioLevel(rms)
                 }
             }
         }
@@ -80,4 +104,3 @@ public final class AudioEngine {
         return captured
     }
 }
-

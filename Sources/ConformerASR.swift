@@ -1,18 +1,11 @@
 import Foundation
 import CoreML
 
-private struct CMVNData: Codable {
-    let mean: [Float]
-    let std: [Float]
-}
-
 public final class ConformerASR {
     public let model: MLModel
-    public let cmvnMean: [Float]
-    public let cmvnStd: [Float]
     public let decoder: CTCDecoder
 
-    public init(modelURL: URL, cmvnURL: URL, vocabURL: URL) throws {
+    public init(modelURL: URL, vocabURL: URL) throws {
         let compiledURL: URL
         if modelURL.pathExtension == "mlmodelc" {
             compiledURL = modelURL
@@ -23,18 +16,21 @@ public final class ConformerASR {
         let config = MLModelConfiguration()
         config.computeUnits = .all // Utilize Apple Neural Engine (ANE) + GPU
         self.model = try MLModel(contentsOf: compiledURL, configuration: config)
-
-        let cmvnData = try Data(contentsOf: cmvnURL)
-        let cmvn = try JSONDecoder().decode(CMVNData.self, from: cmvnData)
-        self.cmvnMean = cmvn.mean
-        self.cmvnStd = cmvn.std
-
         self.decoder = try CTCDecoder(vocabURL: vocabURL)
     }
 
-    /// Run inference on normalized Mel-Spectrogram features [1, T, 80]
-    public func transcribe(mel: MLMultiArray) throws -> String {
-        let inputFeature = try MLDictionaryFeatureProvider(dictionary: ["mel": mel])
+    /// Run inference directly on raw 16kHz audio samples
+    public func transcribe(audio: [Float]) throws -> String {
+        guard audio.count >= 8000 else { return "" }
+
+        let shape: [NSNumber] = [1, NSNumber(value: audio.count)]
+        let audioArray = try MLMultiArray(shape: shape, dataType: .float32)
+        let ptr = audioArray.dataPointer.bindMemory(to: Float.self, capacity: audio.count)
+        for i in 0..<audio.count {
+            ptr[i] = audio[i]
+        }
+
+        let inputFeature = try MLDictionaryFeatureProvider(dictionary: ["audio": audioArray])
         let prediction = try model.prediction(from: inputFeature)
 
         // Find logits feature
@@ -46,4 +42,3 @@ public final class ConformerASR {
         return decoder.decode(logits: logitsFeature)
     }
 }
-

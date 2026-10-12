@@ -17,7 +17,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var audioEngine = AudioEngine()
     private var asr: ConformerASR?
-    private var melExtractor: MelSpectrogramExtractor?
     private var isRecording = false
     private var isTranscribing = false
     private var isModelReady = false
@@ -37,7 +36,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupIcons() {
-        // Native Apple SF Symbol monochrome template images
         if let idle = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Sagaa") {
             idle.isTemplate = true
             self.idleIcon = idle
@@ -152,22 +150,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let bundle = Bundle.main
             guard let modelURL = bundle.url(forResource: "BurmeseASR", withExtension: "mlmodelc") ??
                                  bundle.url(forResource: "BurmeseASR", withExtension: "mlpackage"),
-                  let cmvnURL = bundle.url(forResource: "cmvn", withExtension: "json"),
-                  let vocabURL = bundle.url(forResource: "vocab", withExtension: "json"),
-                  let melURL = bundle.url(forResource: "mel_filters", withExtension: "json") else {
+                  let vocabURL = bundle.url(forResource: "vocab", withExtension: "json") else {
                 print("⚠️ Model resources not found in app bundle")
                 return
             }
 
             do {
-                let asrModel = try ConformerASR(modelURL: modelURL, cmvnURL: cmvnURL, vocabURL: vocabURL)
-                let extractor = try MelSpectrogramExtractor(melFiltersURL: melURL,
-                                                            cmvnMean: asrModel.cmvnMean,
-                                                            cmvnStd: asrModel.cmvnStd)
+                let asrModel = try ConformerASR(modelURL: modelURL, vocabURL: vocabURL)
                 self.asr = asrModel
-                self.melExtractor = extractor
                 self.isModelReady = true
-                print("✅ Sagaa CoreML Engine Ready!")
+                print("✅ Sagaa End-to-End CoreML Engine Ready!")
                 DispatchQueue.main.async {
                     self.rebuildMenu()
                 }
@@ -221,8 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self,
-                  let asr = self.asr,
-                  let melExtractor = self.melExtractor else {
+                  let asr = self.asr else {
                 DispatchQueue.main.async {
                     self?.isTranscribing = false
                     self?.statusItem.button?.title = " Sagaa"
@@ -233,8 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             do {
                 let t0 = CFAbsoluteTimeGetCurrent()
-                let mel = try melExtractor.extract(audio: audioSamples)
-                let rawText = try asr.transcribe(mel: mel)
+                let rawText = try asr.transcribe(audio: audioSamples)
                 let latency = (CFAbsoluteTimeGetCurrent() - t0) * 1000
 
                 // Apply Burmese post-processing
