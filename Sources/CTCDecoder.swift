@@ -24,23 +24,75 @@ public final class CTCDecoder {
         let timeSteps = shape[1]
         let vocabSize = shape[2]
 
-        let ptr = logits.dataPointer.bindMemory(to: Float.self, capacity: logits.count)
+        let strides = logits.strides.map { $0.intValue }
+        let strideT = strides[1]
+        let strideV = strides[2]
+
         var ids: [Int] = []
         ids.reserveCapacity(timeSteps)
 
-        for t in 0..<timeSteps {
-            let offset = t * vocabSize
-            var bestIdx = 0
-            var maxVal = ptr[offset]
+        if logits.dataType == .float16 {
+            let ptr = logits.dataPointer.bindMemory(to: Float16.self, capacity: logits.count)
+            for t in 0..<timeSteps {
+                let base = t * strideT
+                var bestIdx = 0
+                var maxVal = ptr[base]
 
-            for v in 1..<vocabSize {
-                let val = ptr[offset + v]
-                if val > maxVal {
-                    maxVal = val
-                    bestIdx = v
+                for v in 1..<vocabSize {
+                    let val = ptr[base + v * strideV]
+                    if val > maxVal {
+                        maxVal = val
+                        bestIdx = v
+                    }
                 }
+                ids.append(bestIdx)
             }
-            ids.append(bestIdx)
+        } else if logits.dataType == .float32 {
+            let ptr = logits.dataPointer.bindMemory(to: Float.self, capacity: logits.count)
+            for t in 0..<timeSteps {
+                let base = t * strideT
+                var bestIdx = 0
+                var maxVal = ptr[base]
+
+                for v in 1..<vocabSize {
+                    let val = ptr[base + v * strideV]
+                    if val > maxVal {
+                        maxVal = val
+                        bestIdx = v
+                    }
+                }
+                ids.append(bestIdx)
+            }
+        } else if logits.dataType == .double {
+            let ptr = logits.dataPointer.bindMemory(to: Double.self, capacity: logits.count)
+            for t in 0..<timeSteps {
+                let base = t * strideT
+                var bestIdx = 0
+                var maxVal = ptr[base]
+
+                for v in 1..<vocabSize {
+                    let val = ptr[base + v * strideV]
+                    if val > maxVal {
+                        maxVal = val
+                        bestIdx = v
+                    }
+                }
+                ids.append(bestIdx)
+            }
+        } else {
+            // Safe fallback using MLMultiArray NSNumber subscripting
+            for t in 0..<timeSteps {
+                var bestIdx = 0
+                var maxVal = logits[[0, t, 0] as [NSNumber]].floatValue
+                for v in 1..<vocabSize {
+                    let val = logits[[0, t, v] as [NSNumber]].floatValue
+                    if val > maxVal {
+                        maxVal = val
+                        bestIdx = v
+                    }
+                }
+                ids.append(bestIdx)
+            }
         }
 
         // CTC greedy collapse: drop consecutive duplicates and blanks
@@ -57,4 +109,3 @@ public final class CTCDecoder {
         return syllables.joined(separator: " ")
     }
 }
-
