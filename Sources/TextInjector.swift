@@ -14,7 +14,15 @@ public final class TextInjector {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        // 2. Small delay to ensure focus is steady
+        // 2. Check accessibility permissions
+        if !AXIsProcessTrusted() {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            AXIsProcessTrustedWithOptions(options)
+            print("⚠️ Accessibility permission not granted yet. Text is copied to clipboard.")
+            return
+        }
+
+        // 3. Small delay to ensure focus is steady before Cmd+V
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.simulatePasteKeystroke()
         }
@@ -34,4 +42,3 @@ public final class TextInjector {
         cmdUp?.post(tap: .cghidEventTap)
     }
 }
-
