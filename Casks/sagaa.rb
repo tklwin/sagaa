@@ -7,7 +7,7 @@ cask "sagaa" do
   desc "Ultra-fast, private, and lightweight offline Burmese speech-to-text dictation"
   homepage "https://github.com/tklwin/sagaa"
 
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "Sagaa.app"
 
