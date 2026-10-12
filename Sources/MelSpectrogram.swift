@@ -9,7 +9,7 @@ public final class MelSpectrogramExtractor {
     private let nMels = 80
     private let nFreqs = 201
     private let hannWindow: [Float]
-    private let melFilters: [Float] // Flattened 80 x 201
+    private var melFilters: [Float] // Flattened 80 x 201
     private let cmvnMean: [Float]
     private let cmvnStd: [Float]
 
