@@ -1,6 +1,6 @@
 cask "sagaa" do
   version "1.0.0"
-  sha256 :no_check
+  sha256 "1e0a712756755c5686d716f8080a80a7f70588b51fef24c0e22f6b065921828a"
 
   url "https://github.com/tklwin/sagaa/releases/download/v#{version}/Sagaa-macOS.dmg"
   name "Sagaa"
